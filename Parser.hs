@@ -1,6 +1,8 @@
 module Parser 
 ( parse
 , digit
+, alpha
+, choiceL
 , munchRest
 , munchNums1
 , munchAlpha1
@@ -22,6 +24,12 @@ extractFinal xs = if snd l == ""
                   then Just (fst l)
                   else Nothing where
     l = last xs
+
+-- Local, exclusive left-biased choice
+choiceL :: [ReadP a] -> ReadP a
+choiceL []     = pfail
+choiceL [p]    = p
+choiceL (p:ps) = p <++ choiceL ps
 
 munchRest :: ReadP String
 munchRest = munch (\_ -> True)
