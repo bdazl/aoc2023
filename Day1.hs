@@ -1,28 +1,40 @@
 module Day1 where
 
+import Parser
 import Data.Char
 import Data.Maybe
 import qualified Data.Text as T
+import Text.ParserCombinators.ReadP
 
-rules :: [(String, String)]
-rules = [("one", "1"),
-         ("two", "2"),
-         ("three", "3"),
-         ("four", "4"),
-         ("five", "5"),
-         ("six", "6"),
-         ("seven", "7"),
-         ("eight", "8"),
-         ("nine", "9")]
+rules :: [(String, Char)]
+rules = [("one", '1'),
+         ("two", '2'),
+         ("three", '3'),
+         ("four", '4'),
+         ("five", '5'),
+         ("six", '6'),
+         ("seven", '7'),
+         ("eight", '8'),
+         ("nine", '9')]
 
--- First attempt failed:
--- apply :: String -> String
--- apply x = foldr f x rules where
---    f (s,r) x = T.unpack $ T.replace (T.pack s) (T.pack r) (T.pack x)
---
--- This does not work, because some words are sneaky:
---      zoneight234 -> z 1 ight234
---      NOT zone8234
+-- Main parser of the above rules
+-- Either one of the rules apply to the current substring, otherwise simply consume whatever Char we find
+mainP :: ReadP Char
+mainP = do
+    let c = [punctureP i o | (i, o) <- rules]
+    let c_dflt = c ++ [get]
+    o <- choiceL c_dflt
+    return o
+
+-- Puncture the String i to the Char o
+punctureP :: String -> Char -> ReadP Char
+punctureP i o = do
+    string i
+    return o
+
+-- Expand any substrings of "one", "two" etc to "1", "2", ... "9", and leave the rest of the Chars
+expand :: String -> String
+expand = fromJust . (parse (many1 mainP))
 
 maybeint :: Char -> Maybe Int
 maybeint x = if isDigit x
@@ -32,8 +44,8 @@ maybeint x = if isDigit x
 someints :: String -> [Int]
 someints = (map fromJust) . (filter (/=Nothing)) . (map maybeint)
 
--- someints' :: String -> [Int]
--- someints' = someints . apply
+someints' :: String -> [Int]
+someints' = someints . expand
 
 combine :: [Int] -> Int
 combine xs = (10 * head xs) + last xs
@@ -45,7 +57,7 @@ solve :: [String] -> Int
 solve = sol someints
 
 solve' :: [String] -> Int
-solve' _ = 1 -- sol someints'
+solve' = sol someints'
 
 main :: IO ()
 main = do
@@ -54,8 +66,8 @@ main = do
     print $ solve l
     print $ solve' l
 
-example :: [String]
-example = ["1abc2", "pqr3stu8vwx","a1b2c3d4e5f", "treb7uchet"]
+ex1 :: [String]
+ex1 = ["1abc2", "pqr3stu8vwx","a1b2c3d4e5f", "treb7uchet"]
 
 ex2 :: [String]
 ex2 = ["two1nine",
@@ -65,6 +77,3 @@ ex2 = ["two1nine",
        "4nineeightseven2",
        "zoneight234",
        "7pqrstsixteen"]
-
-exres :: [Int]
-exres = [12, 38, 15, 77]
