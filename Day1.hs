@@ -1,3 +1,5 @@
+module Day1 where
+
 import Data.Char
 import Data.Maybe
 import qualified Data.Text as T
