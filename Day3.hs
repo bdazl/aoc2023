@@ -11,10 +11,6 @@ import Text.ParserCombinators.ReadP
 type RawMap = Grid RawElem
 data RawElem = Dot | N Int | Sym Char deriving Eq
 
--- coord map is used to figure out adjacent coordinates of symbols
-type CoordMap = Grid CoordElem
-type CoordElem = Maybe [Coord]
-
 -- used to find values and count position/index
 type NumCharCnt = (Maybe Int, Int)
 
@@ -31,17 +27,34 @@ parseLn = map elem'
 parseRawMap :: [String] -> RawMap
 parseRawMap = map parseLn
 
--- get all coordinates adjacent to symbols
+-- the horrible implementation of this is due to part 2 of this puzzle
 symAdj :: RawMap -> [Coord]
-symAdj xss = [c | cs <- coords, c <- cs] where
+symAdj xss = [c | (_, neighs) <- symAdj' Nothing xss, c <- neighs]
+
+-- get all coordinates adjacent to symbols
+-- returns a list of (symbol coordinate, [neighbour coordinate])
+-- if mc is Nothing, all symbols count
+-- else only the value of (fromJust mc) is considered
+--
+-- the horrible interface here is due to part 2 that messed it up...
+symAdj' :: Maybe Char -> RawMap -> [(Coord, [Coord])]
+symAdj' mc xss = coords where
     -- remove Nothing and remove unJustify
     coords = [fromJust cs | css <- cgrid, cs <- css, isJust cs]
     -- cgrid will contain rim coordinate of symbols or Nothing
     cgrid = gridApply f xss
     dims = dimensions xss
 
-    f :: RawMap -> Coord -> RawElem -> CoordElem
-    f _ c (Sym _) = Just (filterInside dims (rimN c))
+    allSyms _ = True
+    singleSym c = c == (fromJust mc)
+    symConsidered = if isNothing mc
+                    then allSyms
+                    else singleSym
+
+    f :: RawMap -> Coord -> RawElem -> Maybe (Coord, [Coord])
+    f _ c (Sym s) = if symConsidered s
+                    then Just (c, filterInside dims (rimN c))
+                    else Nothing
     f _ _ _       = Nothing
 
 
@@ -102,12 +115,24 @@ filterVals vs cs = [v | (v, _) <- fvs] where
 solve :: [String] -> Int
 solve xs = sum vals where
     vals = filterVals allvs symcs
-    symcs = symAdj rawMap
     allvs = allValCoords xs
+    symcs = symAdj rawMap
     rawMap = parseRawMap xs
 
+findPreRatio :: [ValCoords] -> (Coord, [Coord]) -> Maybe (Int, Int)
+findPreRatio vs (_, cs) = if length fvs == 2
+                          then Just (head fvs, last fvs)
+                          else Nothing where
+    fvs = filterVals vs cs
+
 solve' :: [String] -> Int
-solve' _ = -1
+solve' xs = sum mulRatios where
+    mulRatios = map (\(x,y) -> x*y) ratios
+    ratios  = map fromJust . filter (/=Nothing) $ maybRatios
+    maybRatios = map (findPreRatio allvs) symadjs
+    allvs = allValCoords xs
+    symadjs = symAdj' (Just '*') rawMap
+    rawMap = parseRawMap xs
 
 main :: IO ()
 main = do
